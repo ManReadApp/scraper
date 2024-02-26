@@ -1,12 +1,22 @@
+use std::collections::HashMap;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use crate::services::Service;
 
 #[derive(Default)]
 pub struct MultiSiteService {
-    client: Client
+    client: Client,
+    services: HashMap<String, Service>,
 }
 
 impl MultiSiteService{
+    pub fn new(service: Vec<Service>) -> Self {
+        let services = service.into_iter().map(|v| (v.uri.clone(), v)).collect::<HashMap<_, _>>();
+        Self {
+            client: Default::default(),
+            services,
+        }
+    }
     pub async fn get_chapters(url: String) -> Vec<Info> {
         todo!()
     }

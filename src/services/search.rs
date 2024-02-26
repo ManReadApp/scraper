@@ -1,11 +1,21 @@
+use std::collections::HashMap;
 use reqwest::{Client};
+use crate::services::Service;
 
 #[derive(Default)]
 pub struct SearchService {
     client: Client,
+    services: HashMap<String, Service>,
 }
 
 impl SearchService {
+    pub fn new(service: Vec<Service>) -> Self {
+        let services = service.into_iter().map(|v| (v.uri.clone(), v)).collect::<HashMap<_, _>>();
+        Self {
+            client: Default::default(),
+            services,
+        }
+    }
     pub fn sites() -> Vec<String> {
         todo!()
     }

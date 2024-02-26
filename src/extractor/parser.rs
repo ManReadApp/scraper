@@ -1,6 +1,6 @@
 use regex::Regex;
 
-struct Field {
+pub struct Field {
     name: String,
     target: Target,
     selector: Selector,
@@ -36,7 +36,7 @@ impl TryFrom<&str> for Target {
 }
 
 impl Field {
-    fn parse(text: &str) -> Vec<Field> {
+    pub fn parse(text: &str) -> Vec<Field> {
         let re = Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-z_=\-]+)]\s(.+)"#).unwrap();
         let mut res = vec![];
         for cap in re.captures_iter(text) {

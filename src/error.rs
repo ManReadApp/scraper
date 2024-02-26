@@ -1,3 +1,5 @@
+use std::io;
+use std::io::Error;
 use api_structure::error::{ApiErr, ApiErrorType};
 use base64::DecodeError;
 use js_sandbox::JsError;
@@ -59,6 +61,16 @@ impl ScrapeError {
             message: Some(msg.to_string()),
             cause: None,
             err_type: ApiErrorType::ScrapeErrorInputError,
+        })
+    }
+}
+
+impl From<io::Error> for ScrapeError {
+    fn from(value: Error) -> Self {
+        ScrapeError(ApiErr {
+            message: Some("Failed to read file".to_string()),
+            cause: Some(value.to_string()),
+            err_type: ApiErrorType::ScrapeErrorFetchError,
         })
     }
 }

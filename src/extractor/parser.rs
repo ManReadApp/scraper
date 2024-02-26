@@ -1,32 +1,58 @@
 use regex::Regex;
+use scraper::{Html, Selector};
 
 pub struct Field {
-    name: String,
+    pub name: String,
     target: Target,
     selector: Selector,
 }
 
 enum Target {
-    Html,
-    Text,
-    StripText,
-    Attr(String),
+    Html(Prefix),
+    Text(Prefix),
+    StripText(Prefix),
+    Attr(Prefix, String),
+}
+
+#[derive(Debug)]
+enum Prefix {
+    None,
+    All,
+    Num(usize),
 }
 
 impl TryFrom<&str> for Target {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let value = value.to_lowercase();
+        let mut value = value.to_lowercase();
+        let prefix = value.chars().next();
+        let mut pre = Prefix::None;
+        // Check if the prefix is '@', a digit, or None
+        if let Some('@') | Some('0'..='9') = prefix {
+            // If so, remove the prefix
+            if value.starts_with('@') {
+                pre = Prefix::All;
+                value = value[1..].to_owned();
+            } else {
+                if let Some(index) = value.find(|c: char| !c.is_digit(10)) {
+                    let numeric_part = &value[..index];
+                    if let Ok(num) = numeric_part.parse::<usize>() {
+                        pre = Prefix::Num(num);
+                        value = value[index..].to_owned();
+                    }
+                }
+            }
+        }
         match value.as_str() {
-            "html" => Ok(Self::Html),
-            "text" => Ok(Self::Text),
-            "strip_text" => Ok(Self::StripText),
-            "src" => Ok(Self::Attr("src".to_string())),
-            "href" => Ok(Self::Attr("href".to_string())),
+            "html" => Ok(Self::Html(pre)),
+            "text" => Ok(Self::Text(pre)),
+            "strip_text" => Ok(Self::StripText(pre)),
+            "src" => Ok(Self::Attr(pre, "src".to_string())),
+            "href" => Ok(Self::Attr(pre, "href".to_string())),
             _ => {
                 if let Some(v) = value.strip_prefix("attr=") {
-                    Ok(Self::Attr(v.to_string()))
+                    Ok(Self::Attr(pre, v.to_string()))
                 } else {
                     Err(())
                 }
@@ -37,20 +63,103 @@ impl TryFrom<&str> for Target {
 
 impl Field {
     pub fn parse(text: &str) -> Vec<Field> {
-        let re = Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-z_=\-]+)]\s(.+)"#).unwrap();
+        let re = Regex::new(r#"\b([a-zA-Z0-9_]+)\[([a-zA-Z0-9@_=\-]+)]\s(.+)"#).unwrap();
         let mut res = vec![];
         for cap in re.captures_iter(text) {
             if let Ok(v) = Target::try_from(&cap[2]) {
                 res.push(Field {
                     name: cap[1].to_string(),
                     target: v,
-                    selector: Selector::parse(cap[3].to_string()),
+                    selector: Selector::parse(&cap[3]).unwrap(),
                 });
             } else {
                 panic!("Invalid target: {}", &cap[2])
             }
         }
         res
+    }
+
+    pub fn get(&self, html: &str) -> String {
+        let doc = Html::parse_document(html);
+        let mut select = doc.select(&self.selector);
+        match &self.target {
+            Target::Html(prefix) => match prefix {
+                Prefix::None => select.next().unwrap().html(),
+                Prefix::All => {
+                    println!("here",);
+                    select.map(|v| v.html()).collect::<Vec<_>>().join("\n")
+                }
+                Prefix::Num(size) => {
+                    let v = select.collect::<Vec<_>>();
+                    v[..*size]
+                        .iter()
+                        .map(|v| v.html())
+                        .collect::<Vec<_>>()
+                        .join("")
+                }
+            },
+            Target::Text(prefix) => match prefix {
+                Prefix::None => get_text(select.next().unwrap().text()),
+                Prefix::All => select.map(|text| get_text(text.text())).collect(),
+                Prefix::Num(size) => {
+                    let v = select.collect::<Vec<_>>();
+                    v[..*size]
+                        .iter()
+                        .map(|v| get_text(v.text()))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            },
+            Target::StripText(prefix) => match prefix {
+                Prefix::None => clean_text(get_text(select.next().unwrap().text()))
+                    .trim()
+                    .to_string(),
+                Prefix::All => select
+                    .map(|text| clean_text(get_text(text.text())).trim().to_string())
+                    .collect(),
+                Prefix::Num(size) => {
+                    let v = select.collect::<Vec<_>>();
+                    v[..*size]
+                        .iter()
+                        .map(|v| clean_text(get_text(v.text())).trim().to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            },
+            Target::Attr(prefix, v) => match prefix {
+                Prefix::None => select
+                    .next()
+                    .unwrap()
+                    .attr(v)
+                    .unwrap_or_default()
+                    .to_string(),
+                Prefix::All => select
+                    .map(|refr| refr.attr(v).unwrap_or_default().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                Prefix::Num(size) => {
+                    let items = select.collect::<Vec<_>>();
+                    items[..*size]
+                        .iter()
+                        .map(|refr| refr.attr(v).unwrap_or_default().to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+            },
+        }
+    }
+}
+
+fn get_text(text: scraper::element_ref::Text) -> String {
+    text.collect()
+}
+fn clean_text(text: String) -> String {
+    if let Some(v) = text.strip_prefix("\n") {
+        v.to_string()
+    } else if let Some(v) = text.strip_suffix("\n") {
+        v.to_string()
+    } else {
+        text
     }
 }
 
@@ -59,63 +168,4 @@ enum SelectorType {
     Class,
     Id,
     Name,
-}
-
-#[derive(Debug)]
-struct Selector {
-    typ: SelectorType,
-    name: String,
-    child: Box<Child>,
-}
-
-#[derive(Debug)]
-enum Child {
-    Same(Selector),
-    Descendant(Selector),
-    BroadDescendant(Selector),
-    None,
-}
-
-impl Selector {
-    fn parse(mut s: String) -> Selector {
-        let typ = if let Some(v) = s.strip_prefix("#") {
-            s = v.to_string();
-            SelectorType::Id
-        } else if let Some(v) = s.strip_prefix(".") {
-            s = v.to_string();
-            SelectorType::Class
-        } else {
-            SelectorType::Name
-        };
-
-        let split_chars = [' ', '.', '#'];
-
-        let (split_char_index, _) = split_chars.iter()
-            .filter_map(|&c| s.find(c).map(|pos| (pos, c)))
-            .min_by_key(|&(pos, _)| pos)
-            .unwrap_or((s.len(), ' '));
-        if split_char_index < s.len() {
-            let (name, next) = s.split_at(split_char_index);
-            let child = if let Some(v) = next.strip_prefix(" ") {
-                if let Some(v) = v.strip_prefix("... ") {
-                    Child::BroadDescendant(Self::parse(v.to_string()))
-                } else {
-                    Child::Descendant(Self::parse(v.to_string()))
-                }
-            } else {
-                Child::Same(Self::parse(next.to_string()))
-            };
-            Selector {
-                typ,
-                name: name.to_string(),
-                child: Box::new(child),
-            }
-        } else {
-            Selector {
-                typ,
-                name: s,
-                child: Box::new(Child::None),
-            }
-        }
-    }
 }

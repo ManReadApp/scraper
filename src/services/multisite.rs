@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use crate::services::Service;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::services::Service;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct MultiSiteService {
@@ -9,9 +9,12 @@ pub struct MultiSiteService {
     services: HashMap<String, Service>,
 }
 
-impl MultiSiteService{
+impl MultiSiteService {
     pub fn new(service: Vec<Service>) -> Self {
-        let services = service.into_iter().map(|v| (v.uri.clone(), v)).collect::<HashMap<_, _>>();
+        let services = service
+            .into_iter()
+            .map(|v| (v.uri.clone(), v))
+            .collect::<HashMap<_, _>>();
         Self {
             client: Default::default(),
             services,

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use reqwest::Client;
 use crate::services::Service;
+use reqwest::Client;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct SingleSiteService {
@@ -10,7 +10,10 @@ pub struct SingleSiteService {
 
 impl SingleSiteService {
     pub fn new(service: Vec<Service>) -> Self {
-        let services = service.into_iter().map(|v| (v.uri.clone(), v)).collect::<HashMap<_, _>>();
+        let services = service
+            .into_iter()
+            .map(|v| (v.uri.clone(), v))
+            .collect::<HashMap<_, _>>();
         Self {
             client: Default::default(),
             services,

@@ -1,9 +1,9 @@
-use std::io;
-use std::io::Error;
 use api_structure::error::{ApiErr, ApiErrorType};
 use base64::DecodeError;
 use js_sandbox::JsError;
 use openssl::error::ErrorStack;
+use std::io;
+use std::io::Error;
 use std::num::ParseFloatError;
 use std::str::Utf8Error;
 

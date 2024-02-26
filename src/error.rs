@@ -1,9 +1,9 @@
-use std::num::ParseFloatError;
-use std::str::Utf8Error;
 use api_structure::error::{ApiErr, ApiErrorType};
 use base64::DecodeError;
 use js_sandbox::JsError;
 use openssl::error::ErrorStack;
+use std::num::ParseFloatError;
+use std::str::Utf8Error;
 
 #[derive(Debug)]
 pub struct ScrapeError(pub ApiErr);
@@ -39,15 +39,22 @@ impl From<ErrorStack> for ScrapeError {
 }
 
 impl ScrapeError {
-    pub fn input_error(msg: impl ToString) -> Self{
+    pub fn input_error(msg: impl ToString) -> Self {
         ScrapeError(ApiErr {
             message: Some(msg.to_string()),
             cause: None,
             err_type: ApiErrorType::ScrapeErrorInputError,
         })
     }
+    pub fn node_not_found() -> Self {
+        ScrapeError(ApiErr {
+            message: Some("didnt find node".to_string()),
+            cause: None,
+            err_type: ApiErrorType::ScrapeErrorInputError,
+        })
+    }
 
-    pub fn invalid_url(msg: impl ToString) -> Self{
+    pub fn invalid_url(msg: impl ToString) -> Self {
         ScrapeError(ApiErr {
             message: Some(msg.to_string()),
             cause: None,

@@ -10,6 +10,12 @@ use std::str::Utf8Error;
 #[derive(Debug)]
 pub struct ScrapeError(pub ApiErr);
 
+impl From<ApiErr> for ScrapeError {
+    fn from(value: ApiErr) -> Self {
+        Self(value)
+    }
+}
+
 impl From<JsError> for ScrapeError {
     fn from(value: JsError) -> Self {
         ScrapeError(ApiErr {

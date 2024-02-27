@@ -1,5 +1,13 @@
 mod downloader;
-pub mod error;
-pub mod extractor;
+mod error;
+mod extractor;
 mod pages;
-pub mod services;
+mod services;
+//mod tests;
+
+pub use services::metadata::MetaDataService;
+pub use services::search::SearchService;
+pub use services::multisite::MultiSiteService;
+pub use services::singlesite::SingleSiteService;
+pub use services::icon::ExternalSite;
+pub use error::ScrapeError;

@@ -1,6 +1,5 @@
 use crate::error::ScrapeError;
 use crate::extractor::parser::Field;
-use crate::services::icon::ExternalSite;
 use crate::services::metadata::MetaDataService;
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;
@@ -11,7 +10,10 @@ use std::fs::{read_dir, File};
 use std::io;
 use std::io::{read_to_string, BufRead, Write};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::str::FromStr;
+use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::{Client, Method, RequestBuilder};
+use serde::de::DeserializeOwned;
 
 pub mod icon;
 pub mod metadata;
@@ -19,21 +21,21 @@ pub mod multisite;
 pub mod search;
 pub mod singlesite;
 
-#[tokio::test]
-async fn test() {
-    let external = ExternalSite::init(PathBuf::from("test")).unwrap();
-    let (_, _, search, meta) = init(PathBuf::from("test")).unwrap();
-    meta.get_metadata(
-        "https://asuratoon.com/?s=Revenge+of+the+Iron-Blooded+Sword+Hound",
-        Arc::new(external),
-    )
-    .await;
-}
+
 
 struct Service {
     fields: Vec<Field>,
     uri: String,
     config: HashMap<String, String>,
+}
+
+impl Service {
+    fn process(&self, html: &str) -> HashMap<String, String> {
+        self.fields
+            .iter()
+            .filter_map(|v| v.get(html).map(|res|(v.name.clone(), res)))
+            .collect::<HashMap<_, _>>()
+    }
 }
 
 pub fn init(
@@ -114,4 +116,24 @@ enum Kind {
     MultiSiteScraper,
     Search,
     Metadata,
+}
+
+pub fn hashmap_to_struct<T: DeserializeOwned>(hm: HashMap<String, String>) -> serde_json::Result<T> {
+    serde_json::from_str(&serde_json::to_string(&hm).unwrap())
+}
+
+pub fn config_to_request_builder(client: &Client, config: &HashMap<String, String>, url: &str)-> RequestBuilder {
+    let method = config.get("METHOD").cloned().unwrap_or("GET".to_string());
+    let headers = config
+        .iter()
+        .map(|(key, value)| {
+            (
+                HeaderName::from_str(key).unwrap(),
+                HeaderValue::from_str(value).unwrap(),
+            )
+        })
+        .collect();
+    client
+        .request(Method::from_str(method.as_str()).unwrap(), url)
+        .headers(headers)
 }

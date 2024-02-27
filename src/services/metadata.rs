@@ -2,11 +2,9 @@ use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::pages::asuratoon::get_first_url;
 use crate::services::icon::{get_uri, ExternalSite};
-use crate::services::Service;
-use reqwest::header::{HeaderName, HeaderValue};
-use reqwest::{Client, Method};
+use crate::services::{config_to_request_builder, Service};
+use reqwest::{Client};
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -31,38 +29,16 @@ impl MetaDataService {
         &self,
         url: &str,
         data: Arc<Vec<ExternalSite>>,
-    ) -> Option<Result<MangaInfo, ScrapeError>> {
+    ) -> Result<MangaInfo, ScrapeError> {
         let uri = get_uri(&data, url)?;
         let url = self.process_url(&uri, url.to_string()).await;
         if let Some(v) = self.services.get(&uri) {
-            let method = v.config.get("METHOD").cloned().unwrap_or("GET".to_string());
-            let headers = v
-                .config
-                .iter()
-                .map(|(key, value)| {
-                    (
-                        HeaderName::from_str(key).unwrap(),
-                        HeaderValue::from_str(value).unwrap(),
-                    )
-                })
-                .collect();
-            let req = self
-                .client
-                .request(Method::from_str(method.as_str()).unwrap(), url)
-                .headers(headers);
-            let html = match download(req).await {
-                Ok(v) => v,
-                Err(e) => return Some(Err(ScrapeError::from(e))),
-            };
-
-            let hm = v
-                .fields
-                .iter()
-                .map(|v| (v.name.clone(), v.get(&html)))
-                .collect::<HashMap<_, _>>();
-            Some(post_process(hm))
+            let req = config_to_request_builder(&self.client, &v.config, url.as_str());
+            let html = download(req).await?;
+            let fields = v.process(html.as_str());
+            post_process(fields)
         } else {
-            Some(manual(url).await)
+            manual(url).await
         }
     }
     async fn process_url(&self, uri: &str, url: String) -> String {

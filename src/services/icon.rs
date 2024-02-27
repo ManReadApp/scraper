@@ -5,6 +5,8 @@ use std::io::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
+use api_structure::error::{ApiErr, ApiErrorType};
+use crate::error::ScrapeError;
 
 enum Filter {
     StartsWith(String),
@@ -101,11 +103,16 @@ impl Filter {
     }
 }
 
-pub fn get_uri(data: &Arc<Vec<ExternalSite>>, url: &str) -> Option<String> {
+pub fn get_uri(data: &Arc<Vec<ExternalSite>>, url: &str) -> Result<String, ScrapeError> {
     for external in data.iter() {
         if external.check(url) {
-            return Some(external.uri.clone());
+            return Ok(external.uri.clone());
         }
     }
-    None
+    Err(ApiErr {
+        message: Some("couldnt find uri".to_string()),
+        cause: None,
+        err_type: ApiErrorType::InternalError,
+    }.into())
+
 }

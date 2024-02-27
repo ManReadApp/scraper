@@ -8,7 +8,6 @@ use futures::StreamExt;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -35,9 +34,11 @@ impl MultiSiteService {
         data: Arc<Vec<ExternalSite>>,
     ) -> Result<Vec<Info>, ScrapeError> {
         let uri = get_uri(&data, url)?;
+        let url = modify_url(&self.client, &uri, url).await;
         if let Some(v) = self.services.get(&uri) {
-            let req = config_to_request_builder(&self.client, &v.config, url);
+            let req = config_to_request_builder(&self.client, &v.config, &url);
             let html = download(req).await?;
+            println!("{}", url);
             let fields = v.process(html.as_str());
             post_process(uri.as_str(), fields).map(|v| {
                 v.into_iter()
@@ -58,7 +59,7 @@ impl MultiSiteService {
                     .collect()
             })
         } else {
-            manual(uri.as_str(), url).await
+            manual(&self.client, uri.as_str(), &url).await
         }
     }
 
@@ -69,7 +70,7 @@ impl MultiSiteService {
             let fields = v.process(html.as_str());
             post_process_pages(&info.site.as_str(), fields)
         } else {
-            manual_pages(info).await
+            manual_pages(&self.client, info).await
         }
     }
 }
@@ -83,7 +84,16 @@ pub struct Info {
     pub account: Option<i64>,
 }
 
-fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
+impl Info {
+    pub fn add_title(mut self, title: &Option<String>) -> Self {
+        if let Some(v) = title {
+            self.titles.push(v.to_string())
+        }
+        self
+    }
+}
+
+pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     let re = Regex::new(r"chapter\s+(\d+(\.\d+)?)").unwrap();
     if let Some(captured) = re.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
@@ -99,22 +109,41 @@ fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
 }
 
 fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>, ScrapeError> {
+    let err = |len1, len2| {
+        if len1 != len2 || len2 == 0 {
+            Err(ApiErr {
+                message: Some("Ivalid labels/urls".to_string()),
+                cause: None,
+                err_type: ApiErrorType::InternalError,
+            })
+        } else {
+            Ok(())
+        }
+    };
     if let Some(urls) = fields.get("urls") {
         let urls: Vec<String> = serde_json::from_str(urls)?;
+        let mut res = vec![];
         if let Some(labels) = fields.get("labels") {
-            let mut res = vec![];
             let labels: Vec<String> = serde_json::from_str(labels)?;
-            if labels.len() != urls.len() || urls.is_empty() {
-                return Err(ApiErr {
-                    message: Some("Ivalid labels/urls".to_string()),
-                    cause: None,
-                    err_type: ApiErrorType::InternalError,
-                }
-                .into());
-            }
+            err(labels.len(), urls.len())?;
             for (i, mut url) in urls.into_iter().enumerate() {
                 let title = labels.get(i).unwrap().to_string();
                 let episode = parse_episode(title.as_str())?;
+                res.push(Info {
+                    site: uri.to_string(),
+                    url,
+                    titles: vec![title],
+                    episode,
+                    account: None,
+                })
+            }
+            return Ok(res);
+        } else if let Some(episodes) = fields.get("episodes") {
+            let episodes: Vec<String> = serde_json::from_str(episodes)?;
+            err(episodes.len(), urls.len())?;
+            for (i, mut url) in urls.into_iter().enumerate() {
+                let title = episodes.get(i).unwrap().replace("-", ".").to_string();
+                let episode = title.parse()?;
                 res.push(Info {
                     site: uri.to_string(),
                     url,
@@ -129,17 +158,33 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
     hidden::multi::post_process_info(uri, fields)
 }
 
-async fn manual(uri: &str, url: &str) -> Result<Vec<Info>, ScrapeError> {
-    hidden::multi::manual_info(uri, url).await
+async fn manual(client: &Client, uri: &str, url: &str) -> Result<Vec<Info>, ScrapeError> {
+    hidden::multi::manual_info(client, uri, url).await
 }
 
-async fn manual_pages(info: Info) -> Result<Vec<String>, ScrapeError> {
-    hidden::multi::manual_pages(info).await
+async fn manual_pages(client: &Client, info: Info) -> Result<Vec<String>, ScrapeError> {
+    hidden::multi::manual_pages(client, info).await
 }
 
 fn post_process_pages(
     uri: &str,
     fields: HashMap<String, String>,
 ) -> Result<Vec<String>, ScrapeError> {
-    hidden::multi::post_process_pages(uri, fields)
+    if let Some(v) = fields.get("imgs") {
+        let urls: Vec<String> = serde_json::from_str(v)?;
+        Ok(urls
+            .into_iter()
+            .map(|url| url.replace(['\t', '\n'], ""))
+            .collect())
+    } else {
+        hidden::multi::post_process_pages(uri, fields)
+    }
+}
+
+pub async fn modify_url(client: &Client, uri: &str, url: &str) -> String {
+    if let Some(v) = hidden::multi::modify_url(client, uri, url).await {
+        v
+    } else {
+        url.to_string()
+    }
 }

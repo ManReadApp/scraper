@@ -4,6 +4,9 @@ use crate::services::metadata::MetaDataService;
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;
 use crate::services::singlesite::SingleSiteService;
+use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::{Client, Method, RequestBuilder};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
@@ -11,17 +14,12 @@ use std::io;
 use std::io::{read_to_string, BufRead, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
-use reqwest::header::{HeaderName, HeaderValue};
-use reqwest::{Client, Method, RequestBuilder};
-use serde::de::DeserializeOwned;
 
 pub mod icon;
 pub mod metadata;
 pub mod multisite;
 pub mod search;
 pub mod singlesite;
-
-
 
 struct Service {
     fields: Vec<Field>,
@@ -33,7 +31,7 @@ impl Service {
     fn process(&self, html: &str) -> HashMap<String, String> {
         self.fields
             .iter()
-            .filter_map(|v| v.get(html).map(|res|(v.name.clone(), res)))
+            .filter_map(|v| v.get(html).map(|res| (v.name.clone(), res)))
             .collect::<HashMap<_, _>>()
     }
 }
@@ -118,11 +116,17 @@ enum Kind {
     Metadata,
 }
 
-pub fn hashmap_to_struct<T: DeserializeOwned>(hm: HashMap<String, String>) -> serde_json::Result<T> {
+pub fn hashmap_to_struct<T: DeserializeOwned>(
+    hm: HashMap<String, String>,
+) -> serde_json::Result<T> {
     serde_json::from_str(&serde_json::to_string(&hm).unwrap())
 }
 
-pub fn config_to_request_builder(client: &Client, config: &HashMap<String, String>, url: &str)-> RequestBuilder {
+pub fn config_to_request_builder(
+    client: &Client,
+    config: &HashMap<String, String>,
+    url: &str,
+) -> RequestBuilder {
     let method = config.get("METHOD").cloned().unwrap_or("GET".to_string());
     let headers = config
         .iter()

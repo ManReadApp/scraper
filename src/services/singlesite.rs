@@ -1,12 +1,12 @@
-use crate::services::{config_to_request_builder, Service};
-use reqwest::{Client};
-use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
-use std::sync::Arc;
 use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::pages;
-use crate::services::icon::{ExternalSite, get_uri};
+use crate::services::icon::{get_uri, ExternalSite};
+use crate::services::{config_to_request_builder, Service};
+use reqwest::Client;
+use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct SingleSiteService {
@@ -28,7 +28,11 @@ impl SingleSiteService {
         }
     }
 
-    pub async fn get_pages(&self, url: &str, data: Arc<Vec<ExternalSite>>) -> Result<Vec<String>, ScrapeError> {
+    pub async fn get_pages(
+        &self,
+        url: &str,
+        data: Arc<Vec<ExternalSite>>,
+    ) -> Result<Vec<String>, ScrapeError> {
         let uri = get_uri(&data, url)?;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, url);
@@ -43,7 +47,7 @@ impl SingleSiteService {
 
 fn post_process(uri: &str, values: HashMap<String, String>) -> Result<Vec<String>, ScrapeError> {
     if let Some(v) = values.get("imgs") {
-        return Ok(serde_json::from_str(v)?)
+        return Ok(serde_json::from_str(v)?);
     }
     pages::hidden::single::post_process(uri, values)
 }

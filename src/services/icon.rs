@@ -1,3 +1,5 @@
+use crate::error::ScrapeError;
+use api_structure::error::{ApiErr, ApiErrorType};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
@@ -5,8 +7,6 @@ use std::io::read_to_string;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
-use api_structure::error::{ApiErr, ApiErrorType};
-use crate::error::ScrapeError;
 
 enum Filter {
     StartsWith(String),
@@ -113,6 +113,6 @@ pub fn get_uri(data: &Arc<Vec<ExternalSite>>, url: &str) -> Result<String, Scrap
         message: Some("couldnt find uri".to_string()),
         cause: None,
         err_type: ApiErrorType::InternalError,
-    }.into())
-
+    }
+    .into())
 }

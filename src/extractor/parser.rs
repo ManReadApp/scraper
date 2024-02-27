@@ -90,53 +90,65 @@ impl Field {
                 }
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    serde_json::to_string(&v[..*size]
-                        .iter()
-                        .map(|v| v.html())
-                        .collect::<Vec<_>>()).unwrap()
+                    serde_json::to_string(&v[..*size].iter().map(|v| v.html()).collect::<Vec<_>>())
+                        .unwrap()
                 }
             },
             Target::Text(prefix) => match prefix {
                 Prefix::None => get_text(select.next()?.text()),
-                Prefix::All => serde_json::to_string(&select.map(|text| get_text(text.text())).collect::<Vec<_>>()).unwrap(),
+                Prefix::All => serde_json::to_string(
+                    &select.map(|text| get_text(text.text())).collect::<Vec<_>>(),
+                )
+                .unwrap(),
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    serde_json::to_string(&v[..*size]
-                        .iter()
-                        .map(|v| get_text(v.text()))
-                        .collect::<Vec<_>>()).unwrap()
+                    serde_json::to_string(
+                        &v[..*size]
+                            .iter()
+                            .map(|v| get_text(v.text()))
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap()
                 }
             },
             Target::StripText(prefix) => match prefix {
                 Prefix::None => clean_text(get_text(select.next()?.text()))
                     .trim()
                     .to_string(),
-                Prefix::All => serde_json::to_string(&select
-                    .map(|text| clean_text(get_text(text.text())).trim().to_string())
-                    .collect::<Vec<_>>()).unwrap(),
+                Prefix::All => serde_json::to_string(
+                    &select
+                        .map(|text| clean_text(get_text(text.text())).trim().to_string())
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
                 Prefix::Num(size) => {
                     let v = select.collect::<Vec<_>>();
-                    serde_json::to_string(&v[..*size]
-                        .iter()
-                        .map(|v| clean_text(get_text(v.text())).trim().to_string())
-                        .collect::<Vec<_>>()).unwrap()
+                    serde_json::to_string(
+                        &v[..*size]
+                            .iter()
+                            .map(|v| clean_text(get_text(v.text())).trim().to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap()
                 }
             },
             Target::Attr(prefix, v) => match prefix {
-                Prefix::None => select
-                    .next()?
-                    .attr(v)
-                    .unwrap_or_default()
-                    .to_string(),
-                Prefix::All => serde_json::to_string(&select
-                    .map(|refr| refr.attr(v).unwrap_or_default().to_string())
-                    .collect::<Vec<_>>()).unwrap(),
+                Prefix::None => select.next()?.attr(v).unwrap_or_default().to_string(),
+                Prefix::All => serde_json::to_string(
+                    &select
+                        .map(|refr| refr.attr(v).unwrap_or_default().to_string())
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
                 Prefix::Num(size) => {
                     let items = select.collect::<Vec<_>>();
-                    serde_json::to_string(&items[..*size]
-                        .iter()
-                        .map(|refr| refr.attr(v).unwrap_or_default().to_string())
-                        .collect::<Vec<_>>()).unwrap()
+                    serde_json::to_string(
+                        &items[..*size]
+                            .iter()
+                            .map(|refr| refr.attr(v).unwrap_or_default().to_string())
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap()
                 }
             },
         })

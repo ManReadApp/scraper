@@ -2,3 +2,6 @@
 Cargo.lock
 /src/refactor/
 /tests
+/src/tests.rs
+/src/pages/hidden/single.rs
+/src/pages/hidden/multi.rs

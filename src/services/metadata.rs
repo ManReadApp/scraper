@@ -3,7 +3,7 @@ use crate::error::ScrapeError;
 use crate::pages::asuratoon::get_first_url;
 use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
-use reqwest::{Client};
+use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
 

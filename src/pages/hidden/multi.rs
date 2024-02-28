@@ -3,6 +3,7 @@ use crate::services::multisite::Info;
 use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
 use std::collections::HashMap;
+use api_structure::scrape::ScrapeAccount;
 
 fn register() -> Vec<&'static str> {
     vec![]
@@ -20,7 +21,7 @@ pub fn post_process_pages(
     .into())
 }
 
-pub async fn manual_pages(client: &Client, info: Info) -> Result<Vec<String>, ScrapeError> {
+pub async fn manual_pages(client: &Client, info: Info, acc: Option<ScrapeAccount>) -> Result<Vec<String>, ScrapeError> {
     Err(ApiErr {
         message: Some("uri not registered".to_string()),
         cause: None,
@@ -41,7 +42,7 @@ pub fn post_process_info(
     .into())
 }
 
-pub async fn manual_info(client: &Client, uri: &str, url: &str) -> Result<Vec<Info>, ScrapeError> {
+pub async fn manual_info(client: &Client, uri: &str, url: &str) -> Result<(Vec<Info>, Vec<Info>), ScrapeError> {
     Err(ApiErr {
         message: Some("uri not registered".to_string()),
         cause: None,

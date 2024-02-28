@@ -10,6 +10,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use api_structure::scrape::ScrapeAccount;
 
 #[derive(Default)]
 pub struct MultiSiteService {
@@ -32,13 +33,12 @@ impl MultiSiteService {
         &self,
         url: &str,
         data: Arc<Vec<ExternalSite>>,
-    ) -> Result<Vec<Info>, ScrapeError> {
+    ) -> Result<(Vec<Info>, Vec<Info>), ScrapeError> {
         let uri = get_uri(&data, url)?;
         let url = modify_url(&self.client, &uri, url).await;
         if let Some(v) = self.services.get(&uri) {
             let req = config_to_request_builder(&self.client, &v.config, &url);
             let html = download(req).await?;
-            println!("{}", url);
             let fields = v.process(html.as_str());
             post_process(uri.as_str(), fields).map(|v| {
                 v.into_iter()
@@ -56,21 +56,21 @@ impl MultiSiteService {
                         }
                         v
                     })
-                    .collect()
-            })
+                    .collect::<Vec<_>>()
+            }).map(|v|(v, vec![]))
         } else {
             manual(&self.client, uri.as_str(), &url).await
         }
     }
 
-    pub async fn get_pages(&self, info: Info) -> Result<Vec<String>, ScrapeError> {
+    pub async fn get_pages(&self, info: Info, acc: Option<ScrapeAccount>) -> Result<Vec<String>, ScrapeError> {
         if let Some(v) = self.services.get(&info.site) {
             let req = config_to_request_builder(&self.client, &v.config, &info.url);
             let html = download(req).await?;
             let fields = v.process(html.as_str());
             post_process_pages(&info.site.as_str(), fields)
         } else {
-            manual_pages(&self.client, info).await
+            manual_pages(&self.client, info, acc).await
         }
     }
 }
@@ -95,10 +95,14 @@ impl Info {
 
 pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     let re = Regex::new(r"chapter\s+(\d+(\.\d+)?)").unwrap();
+    let re2 = Regex::new(r"ch\.\s+(\d+(\.\d+)?)").unwrap();
     if let Some(captured) = re.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
-    } else {
+    } else if let Some(captured) = re2.captures(&s.to_lowercase()) {
+        let number_str = &captured[1];
+        Ok(number_str.parse()?)
+    }else {
         Err(ApiErr {
             message: Some("couldnt find chapter number".to_string()),
             cause: None,
@@ -158,12 +162,12 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
     hidden::multi::post_process_info(uri, fields)
 }
 
-async fn manual(client: &Client, uri: &str, url: &str) -> Result<Vec<Info>, ScrapeError> {
+async fn manual(client: &Client, uri: &str, url: &str) -> Result<(Vec<Info>, Vec<Info>), ScrapeError> {
     hidden::multi::manual_info(client, uri, url).await
 }
 
-async fn manual_pages(client: &Client, info: Info) -> Result<Vec<String>, ScrapeError> {
-    hidden::multi::manual_pages(client, info).await
+async fn manual_pages(client: &Client, info: Info, acc: Option<ScrapeAccount>) -> Result<Vec<String>, ScrapeError> {
+    hidden::multi::manual_pages(client, info, acc).await
 }
 
 fn post_process_pages(

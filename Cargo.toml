@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scraper = "0.18.1"
-api_structure = {path = "../api_structure"}
+scraper = "0.19.0"
+api_structure = { path = "../api_structure" }
 openssl = "0.10.55"
 js-sandbox = "0.2.0-rc.2"
-base64 = "0.21.2"
+base64 = "0.22.0"
 serde_json = "1.0.64"
 serde = "1.0.164"
 reqwest = { version = "0.11.18", features = ["json", "socks"] }

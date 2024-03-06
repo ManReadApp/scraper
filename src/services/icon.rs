@@ -35,20 +35,25 @@ impl ExternalSite {
                     .to_str()
                     .unwrap_or_default();
                 if let Some((name, ext)) = name.split_once(".") {
-                    if ext == "filter" {
-                        filters.insert(
-                            name.to_string(),
-                            Filter::new(
-                                read_to_string(File::open(path).unwrap())
-                                    .map_err(|e| e.to_string())?,
-                            )?,
-                        );
-                    } else {
-                        files.insert(name.to_string(), path);
+                    match ext {
+                        "filter" => {
+                            filters.insert(
+                                name.to_string(),
+                                Filter::new(
+                                    read_to_string(File::open(path).unwrap())
+                                        .map_err(|e| e.to_string())?,
+                                )?,
+                            );
+                        }
+                        "scraper" | "search" | "metadata" => {}
+                        _ => {
+                            files.insert(name.to_string(), path);
+                        }
                     }
                 }
             }
         }
+
         Ok(filters
             .into_iter()
             .map(|(site, filter)| ExternalSite {

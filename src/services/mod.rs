@@ -1,5 +1,6 @@
 use crate::error::ScrapeError;
 use crate::extractor::parser::Field;
+use crate::extractor::SearchServiceScrapeData;
 use crate::services::metadata::MetaDataService;
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;
@@ -12,7 +13,7 @@ use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
 use std::io::{read_to_string, BufRead, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 pub mod icon;
@@ -23,7 +24,6 @@ pub mod singlesite;
 
 struct Service {
     fields: Vec<Field>,
-    uri: String,
     config: HashMap<String, String>,
 }
 
@@ -48,10 +48,10 @@ pub fn init(
     ScrapeError,
 > {
     let folder = root_folder.join("external");
-    let mut search = vec![];
-    let mut meta = vec![];
-    let mut multi = vec![];
-    let mut single = vec![];
+    let mut search = HashMap::new();
+    let mut meta = HashMap::new();
+    let mut multi = HashMap::new();
+    let mut single = HashMap::new();
     for entry in read_dir(&folder)? {
         let path = entry?.path();
         if path.is_file() {
@@ -60,35 +60,29 @@ pub fn init(
                 .unwrap_or_default()
                 .to_str()
                 .unwrap_or_default();
-            if !name.starts_with(".") && name.ends_with(".scraper") {
-                let file = File::open(path.as_path())?;
-                let reader = io::BufReader::new(file);
-                let mut lines = reader.lines();
-                if let Some(Ok(first_line)) = lines.next() {
-                    let header: Header =
-                        serde_json::from_str(&format!("{}{}{}", '{', first_line, '}'))?;
-                    let text = lines
-                        .collect::<Result<Vec<String>, _>>()
-                        .unwrap()
-                        .join("\n");
-                    let v = Field::parse(text.as_str());
-                    let config = if let Some(file) = header.request_config {
-                        let text = read_to_string(File::open(folder.join(file)).unwrap())?;
-                        serde_json::from_str(&text)?
-                    } else {
-                        HashMap::new()
-                    };
-                    let service = Service {
-                        fields: v,
-                        uri: header.uri,
-                        config,
-                    };
-                    match header.kind {
-                        Kind::SingleSiteScraper => single.push(service),
-                        Kind::MultiSiteScraper => multi.push(service),
-                        Kind::Search => search.push(service),
-                        Kind::Metadata => meta.push(service),
+            if !name.starts_with(".") {
+                if let Some(scraper) = name.strip_suffix(".scraper") {
+                    let (service, kind) = get_services(&folder, &path)?;
+                    match kind {
+                        None => panic!(),
+                        Some(v) => {
+                            match v {
+                                Kind::SingleSiteScraper => {
+                                    single.insert(scraper.to_string(), service)
+                                }
+                                Kind::MultiSiteScraper => {
+                                    multi.insert(scraper.to_string(), service)
+                                }
+                            };
+                        }
                     }
+                } else if let Some(metadata) = name.strip_suffix(".metadata") {
+                    meta.insert(metadata.to_string(), get_services(&folder, &path)?.0);
+                } else if let Some(v) = name.strip_suffix(".search") {
+                    let file = File::open(path.as_path())?;
+                    let str = read_to_string(file)?;
+                    let data: SearchServiceScrapeData = serde_json::from_str(&str)?;
+                    search.insert(v.to_string(), data);
                 }
             }
         }
@@ -101,10 +95,35 @@ pub fn init(
     ))
 }
 
+fn get_services(folder: &Path, path: &PathBuf) -> Result<(Service, Option<Kind>), ScrapeError> {
+    let file = File::open(path.as_path())?;
+    let reader = io::BufReader::new(file);
+    let mut lines = reader.lines();
+    if let Some(Ok(first_line)) = lines.next() {
+        let header: Header = serde_json::from_str(&format!("{}{}{}", '{', first_line, '}'))?;
+        let text = lines
+            .collect::<Result<Vec<String>, _>>()
+            .unwrap()
+            .join("\n");
+        let v = Field::parse(text.as_str());
+        let config = if let Some(file) = header.request_config {
+            let text = read_to_string(File::open(folder.join(file)).unwrap())?;
+            serde_json::from_str(&text)?
+        } else {
+            HashMap::new()
+        };
+        Ok((Service { fields: v, config }, header.kind))
+    } else {
+        Err(ScrapeError::input_error(format!(
+            "header missing in file: {}",
+            path.display()
+        )))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Header {
-    uri: String,
-    kind: Kind,
+    kind: Option<Kind>,
     request_config: Option<String>,
 }
 
@@ -112,8 +131,6 @@ struct Header {
 enum Kind {
     SingleSiteScraper,
     MultiSiteScraper,
-    Search,
-    Metadata,
 }
 
 pub fn hashmap_to_struct<T: DeserializeOwned>(

@@ -19,11 +19,7 @@ pub struct MultiSiteService {
 }
 
 impl MultiSiteService {
-    pub fn new(service: Vec<Service>) -> Self {
-        let services = service
-            .into_iter()
-            .map(|v| (v.uri.clone(), v))
-            .collect::<HashMap<_, _>>();
+    pub fn new(services: HashMap<String, Service>) -> Self {
         Self {
             client: Default::default(),
             services,

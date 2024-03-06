@@ -1,19 +1,15 @@
-use crate::services::Service;
+use crate::extractor::SearchServiceScrapeData;
 use reqwest::Client;
 use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct SearchService {
     client: Client,
-    services: HashMap<String, Service>,
+    services: HashMap<String, SearchServiceScrapeData>,
 }
 
 impl SearchService {
-    pub fn new(service: Vec<Service>) -> Self {
-        let services = service
-            .into_iter()
-            .map(|v| (v.uri.clone(), v))
-            .collect::<HashMap<_, _>>();
+    pub fn new(services: HashMap<String, SearchServiceScrapeData>) -> Self {
         Self {
             client: Default::default(),
             services,

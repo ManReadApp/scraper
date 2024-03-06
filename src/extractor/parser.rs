@@ -158,11 +158,15 @@ impl Field {
 fn get_text(text: scraper::element_ref::Text) -> String {
     text.collect()
 }
-fn clean_text(text: String) -> String {
+pub fn clean_text(text: String) -> String {
     if let Some(v) = text.strip_prefix("\n") {
-        v.to_string()
+        clean_text(v.to_string())
     } else if let Some(v) = text.strip_suffix("\n") {
-        v.to_string()
+        clean_text(v.to_string())
+    } else if let Some(v) = text.strip_prefix(" ") {
+        clean_text(v.to_string())
+    } else if let Some(v) = text.strip_suffix(" ") {
+        clean_text(v.to_string())
     } else {
         text
     }

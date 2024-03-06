@@ -1,5 +1,6 @@
 use crate::downloader::download;
 use crate::error::ScrapeError;
+use crate::extractor::parser::clean_text;
 use crate::pages::asuratoon::get_first_url;
 use crate::pages::mangaupdates;
 use crate::services::icon::{get_uri, ExternalSite};
@@ -72,6 +73,37 @@ fn post_process(
             v = ItemOrArray::Item(value);
         }
         res.insert(key, v);
+    }
+    if let Some(ItemOrArray::Array(mut v)) = res.remove("fields_labels") {
+        if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
+            if v.len() == vv.len() {
+                for (i, data) in v.into_iter().enumerate() {
+                    let value = vv.get(i).unwrap().as_str();
+                    let text = clean_text(
+                        clean_text(data)
+                            .strip_prefix(&value)
+                            .ok_or(ScrapeError::node_not_found())?
+                            .to_string(),
+                    );
+                    let key = value.replace(":", "");
+                    match value {
+                        "Genres:" | "Demographic:" | "Themes:" => {
+                            let genres: Vec<String> = text
+                                .split(",")
+                                .map(|v| v.split_once("\n").map(|v| v.0).unwrap_or(v).to_string())
+                                .map(|v| clean_text(v))
+                                .collect();
+                            res.insert(key, ItemOrArray::Array(genres));
+                        }
+                        "Score:" | "Chapters:" | "Favorites:" | "Members:" | "Popularity:"
+                        | "Volumes:" | "Ranked:" => {}
+                        _ => {
+                            res.insert(key, ItemOrArray::Item(text));
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(res)
 }

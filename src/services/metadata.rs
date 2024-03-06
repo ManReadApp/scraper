@@ -1,8 +1,10 @@
 use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::pages::asuratoon::get_first_url;
+use crate::pages::mangaupdates;
 use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
+use api_structure::error::{ApiErr, ApiErrorType};
 use reqwest::Client;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -29,7 +31,7 @@ impl MetaDataService {
         &self,
         url: &str,
         data: Arc<Vec<ExternalSite>>,
-    ) -> Result<MangaInfo, ScrapeError> {
+    ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
         let uri = get_uri(&data, url)?;
         let url = self.process_url(&uri, url.to_string()).await;
         if let Some(v) = self.services.get(&uri) {
@@ -38,11 +40,11 @@ impl MetaDataService {
             let fields = v.process(html.as_str());
             post_process(fields)
         } else {
-            manual(url).await
+            manual(&self.client, &uri, &url).await
         }
     }
     async fn process_url(&self, uri: &str, url: String) -> String {
-        if uri == "asuratoon" {
+        if uri == "asura" {
             let html = download(self.client.get(url)).await.unwrap();
             get_first_url(&html).unwrap().to_string()
         } else {
@@ -51,18 +53,41 @@ impl MetaDataService {
     }
 }
 
-pub struct MangaInfo {
-    titles: Vec<String>,
-    summery: Option<String>,
-    genres: Vec<String>,
-    other: HashMap<String, String>,
+#[derive(Debug)]
+pub enum ItemOrArray {
+    Item(String),
+    Array(Vec<String>),
 }
 
-fn post_process(values: HashMap<String, String>) -> Result<MangaInfo, ScrapeError> {
-    println!("{:?}", values);
-    todo!()
+fn post_process(
+    values: HashMap<String, String>,
+) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
+    let mut res = HashMap::new();
+    for (key, value) in values {
+        let v;
+        if let Ok(value) = serde_json::from_str(&value) {
+            let value: Vec<String> = value;
+            v = ItemOrArray::Array(value);
+        } else {
+            v = ItemOrArray::Item(value);
+        }
+        res.insert(key, v);
+    }
+    Ok(res)
 }
 
-async fn manual(url: String) -> Result<MangaInfo, ScrapeError> {
-    todo!()
+async fn manual(
+    client: &Client,
+    uri: &str,
+    url: &str,
+) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
+    match uri {
+        "manga-updates" => mangaupdates::get_data(client, url).await,
+        _ => Err(ApiErr {
+            message: Some("uri not registered".to_string()),
+            cause: None,
+            err_type: ApiErrorType::InternalError,
+        }
+        .into()),
+    }
 }

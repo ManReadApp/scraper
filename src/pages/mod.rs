@@ -1,3 +1,4 @@
+pub mod anilist;
 pub mod asuratoon;
 pub mod hidden;
 pub mod kitsu;

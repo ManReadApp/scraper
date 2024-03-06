@@ -2,7 +2,7 @@ use crate::downloader::download;
 use crate::error::ScrapeError;
 use crate::extractor::parser::clean_text;
 use crate::pages::asuratoon::get_first_url;
-use crate::pages::mangaupdates;
+use crate::pages::{kitsu, mangaupdates};
 use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
 use api_structure::error::{ApiErr, ApiErrorType};
@@ -115,6 +115,7 @@ async fn manual(
 ) -> Result<HashMap<String, ItemOrArray>, ScrapeError> {
     match uri {
         "manga-updates" => mangaupdates::get_data(client, url).await,
+        "kitsu" => kitsu::get_data(client, url).await,
         _ => Err(ApiErr {
             message: Some("uri not registered".to_string()),
             cause: None,

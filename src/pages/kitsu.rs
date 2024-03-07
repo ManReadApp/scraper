@@ -131,3 +131,5 @@ impl Attributes1 {
         }
     }
 }
+
+//"https://kitsu.io/api/edge/manga?fields%5Bmanga%5D=slug%2CcanonicalTitle%2Ctitles%2CposterImage%2Cdescription%2CaverageRating%2CstartDate%2CpopularityRank%2CratingRank&filter%5Btext%5D={query}&page%5Blimit%5D={limit}&page%5Boffset%5D={offset}&filter%5Bcategories%5D={categories}";

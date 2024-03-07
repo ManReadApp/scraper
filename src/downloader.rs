@@ -1,4 +1,3 @@
-use log::warn;
 use reqwest::{Error, RequestBuilder};
 
 pub async fn download(v: RequestBuilder) -> Result<String, Error> {

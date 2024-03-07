@@ -9,7 +9,7 @@ use futures::StreamExt;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -32,33 +32,57 @@ impl MultiSiteService {
     ) -> Result<(Vec<Info>, Vec<Info>), ScrapeError> {
         let uri = get_uri(&data, url)?;
         let url = modify_url(&self.client, &uri, url).await;
-        if let Some(v) = self.services.get(&uri) {
-            let req = config_to_request_builder(&self.client, &v.config, &url);
-            let html = download(req).await?;
-            let fields = v.process(html.as_str());
-            post_process(uri.as_str(), fields)
-                .map(|v| {
-                    v.into_iter()
-                        .map(|mut v| {
-                            if v.url.starts_with("/") {
-                                let url_base = url.replace("http://", "").replace("https://", "");
-                                v.url = format!(
-                                    "https://{}{}",
-                                    url_base
-                                        .split_once("/")
-                                        .map(|v| v.0.to_string())
-                                        .unwrap_or(url_base),
-                                    v.url
-                                );
-                            }
-                            v
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .map(|v| (v, vec![]))
-        } else {
-            manual(&self.client, uri.as_str(), &url).await
+        let (mut now, mut later) = {
+            if let Some(v) = self.services.get(&uri) {
+                let req = config_to_request_builder(&self.client, &v.config, &url);
+                let html = download(req).await?;
+                let fields = v.process(html.as_str());
+                let items = post_process(uri.as_str(), fields)
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|mut v| {
+                                if v.url.starts_with("/") {
+                                    let url_base =
+                                        url.replace("http://", "").replace("https://", "");
+                                    v.url = format!(
+                                        "https://{}{}",
+                                        url_base
+                                            .split_once("/")
+                                            .map(|v| v.0.to_string())
+                                            .unwrap_or(url_base),
+                                        v.url
+                                    );
+                                }
+                                v
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .map(|v| (v, vec![]))?;
+                Ok(items)
+            } else {
+                manual(&self.client, uri.as_str(), &url).await
+            }
+        }?;
+        let mut existing = HashSet::new();
+        for now in &mut now {
+            if now.episode == 0.0 {
+                return Err(ScrapeError::input_error("failed to parse episode"));
+            }
+            if existing.contains(&now.episode.to_string()) {
+                return Err(ScrapeError::input_error("episode does already exist"));
+            }
+            existing.insert(now.episode.to_string());
         }
+        for later in &mut later {
+            if later.episode == 0.0 {
+                return Err(ScrapeError::input_error("failed to parse episode"));
+            }
+            if existing.contains(&later.episode.to_string()) {
+                return Err(ScrapeError::input_error("episode does already exist"));
+            }
+            existing.insert(later.episode.to_string());
+        }
+        Ok((now, later))
     }
 
     pub async fn get_pages(
@@ -104,6 +128,9 @@ pub fn parse_episode(s: &str) -> Result<f64, ScrapeError> {
     } else if let Some(captured) = re2.captures(&s.to_lowercase()) {
         let number_str = &captured[1];
         Ok(number_str.parse()?)
+    } else if let Some(captured) = Regex::new(r"第(\d+(\.\d+)?)").unwrap().captures(&s) {
+        let number_str = &captured[1];
+        Ok(number_str.parse()?)
     } else {
         Err(ApiErr {
             message: Some("couldnt find chapter number".to_string()),
@@ -134,7 +161,7 @@ fn post_process(uri: &str, fields: HashMap<String, String>) -> Result<Vec<Info>,
             err(labels.len(), urls.len())?;
             for (i, mut url) in urls.into_iter().enumerate() {
                 let title = labels.get(i).unwrap().to_string();
-                let episode = parse_episode(title.as_str())?;
+                let episode = parse_episode(title.as_str()).unwrap_or(0.0);
                 res.push(Info {
                     site: uri.to_string(),
                     url,
@@ -184,7 +211,24 @@ fn post_process_pages(
     uri: &str,
     fields: HashMap<String, String>,
 ) -> Result<Vec<String>, ScrapeError> {
-    if let Some(v) = fields.get("imgs") {
+    if let Some(v) = fields.get("imgs_back").cloned() {
+        let back: Vec<String> = serde_json::from_str(&v)?;
+        if let Some(v) = fields.get("imgs") {
+            let value: Vec<String> = serde_json::from_str(v)?;
+            let urls = value
+                .into_iter()
+                .enumerate()
+                .map(|(index, v)| match v.is_empty() {
+                    true => back.get(index).unwrap().clone(),
+                    false => v,
+                })
+                .map(|url| url.replace(['\t', '\n'], ""))
+                .collect();
+            Ok(urls)
+        } else {
+            hidden::multi::post_process_pages(uri, fields)
+        }
+    } else if let Some(v) = fields.get("imgs") {
         let urls: Vec<String> = serde_json::from_str(v)?;
         Ok(urls
             .into_iter()

@@ -1,6 +1,8 @@
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 use crate::ScrapeError;
+use api_structure::scraper::SimpleSearch;
+use api_structure::scraper::ValidSearch;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -65,6 +67,7 @@ query ($id: Int) { # Define which variables will be used in the query (id)
   }
 }
 ";
+
 pub async fn get_data(
     client: &Client,
     url: &str,
@@ -239,4 +242,217 @@ impl Date {
         }
         None
     }
+}
+
+const QUERY2: &str = "query (
+  $page: Int = 1
+  $id: Int
+  $type: MediaType
+  $isAdult: Boolean = false
+  $search: String
+  $format: [MediaFormat]
+  $status: MediaStatus
+  $countryOfOrigin: CountryCode
+  $source: MediaSource
+  $season: MediaSeason
+  $seasonYear: Int
+  $year: String
+  $onList: Boolean
+  $yearLesser: FuzzyDateInt
+  $yearGreater: FuzzyDateInt
+  $episodeLesser: Int
+  $episodeGreater: Int
+  $durationLesser: Int
+  $durationGreater: Int
+  $chapterLesser: Int
+  $chapterGreater: Int
+  $volumeLesser: Int
+  $volumeGreater: Int
+  $licensedBy: [Int]
+  $isLicensed: Boolean
+  $genres: [String]
+  $excludedGenres: [String]
+  $tags: [String]
+  $excludedTags: [String]
+  $minimumTagRank: Int
+  $sort: [MediaSort] = [POPULARITY_DESC, SCORE_DESC]
+) {
+  Page(page: $page, perPage: 50) {
+    pageInfo {
+      total
+      perPage
+      currentPage
+      lastPage
+      hasNextPage
+    }
+    media(
+      id: $id
+      type: $type
+      season: $season
+      format_in: $format
+      status: $status
+      countryOfOrigin: $countryOfOrigin
+      source: $source
+      search: $search
+      onList: $onList
+      seasonYear: $seasonYear
+      startDate_like: $year
+      startDate_lesser: $yearLesser
+      startDate_greater: $yearGreater
+      episodes_lesser: $episodeLesser
+      episodes_greater: $episodeGreater
+      duration_lesser: $durationLesser
+      duration_greater: $durationGreater
+      chapters_lesser: $chapterLesser
+      chapters_greater: $chapterGreater
+      volumes_lesser: $volumeLesser
+      volumes_greater: $volumeGreater
+      licensedById_in: $licensedBy
+      isLicensed: $isLicensed
+      genre_in: $genres
+      genre_not_in: $excludedGenres
+      tag_in: $tags
+      tag_not_in: $excludedTags
+      minimumTagRank: $minimumTagRank
+      sort: $sort
+      isAdult: $isAdult
+    ) {
+      id
+      title {
+        userPreferred
+      }
+      coverImage {
+        extraLarge
+        large
+        color
+      }
+      startDate {
+        year
+        month
+        day
+      }
+      endDate {
+        year
+        month
+        day
+      }
+      bannerImage
+      season
+      seasonYear
+      description
+      type
+      format
+      status(version: 2)
+      episodes
+      duration
+      chapters
+      volumes
+      genres
+      isAdult
+      averageScore
+      popularity
+      nextAiringEpisode {
+        airingAt
+        timeUntilAiring
+        episode
+      }
+      mediaListEntry {
+        id
+        status
+      }
+      studios(isMain: true) {
+        edges {
+          isMain
+          node {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}
+";
+
+fn get_sort(s: &str, desc: bool) -> Value {
+    let desc = match desc {
+        true => "DESC",
+        false => "ASC",
+    };
+    match s {
+        "popularity" => serde_json::to_value(format!("POPULARITY_{}", desc)).unwrap(),
+        "score" => serde_json::to_value(format!("SCORE_{}", desc)).unwrap(),
+        "trending" => {
+            serde_json::to_value([format!("TRENDING_{}", desc), format!("POPULARITY_{}", desc)])
+                .unwrap()
+        }
+        "created" => serde_json::to_value(format!("ID_{}", desc)).unwrap(),
+        "updated" => serde_json::to_value(format!("START_DATE_{}", desc)).unwrap(),
+        _ => unreachable!(),
+    }
+}
+
+fn get_status(s: &str) -> &str {
+    match s {
+        "releasing" => "RELEASING",
+        "finished" => "FINISHED",
+        "upcoming" => "NOT_YET_RELEASED",
+        "hiatus" => "HIATUS",
+        "cancelled" => "CANCELLED",
+        _ => unreachable!(),
+    }
+}
+pub async fn search(
+    client: &Client,
+    search: &SimpleSearch,
+    tags: Vec<String>,
+) -> Result<(), ScrapeError> {
+    let valid: ValidSearch = ValidSearch::anilist();
+    if !search.validate(&valid) {
+        return Err(ScrapeError::input_error("couldnt match ValidSearch"));
+    }
+    let mut items = vec![
+        ("page", serde_json::to_value(search.page).unwrap()),
+        ("type", serde_json::to_value("MANGA").unwrap()),
+    ]
+    .into_iter()
+    .collect::<HashMap<_, _>>();
+    if let Some(query) = &search.search {
+        if search.sort.is_none() {
+            items.insert("sort", serde_json::to_value("SEARCH_MATCH").unwrap());
+        }
+        items.insert("search", serde_json::to_value(query).unwrap());
+    } else {
+        if search.sort.is_none() {
+            items.insert(
+                "sort",
+                serde_json::to_value(["TRENDING_DESC", "POPULARITY_DESC"]).unwrap(),
+            );
+        }
+    };
+    if let Some(sort) = &search.sort {
+        items.insert("sort", get_sort(sort, search.desc));
+    }
+    if let Some(status) = &search.status {
+        items.insert("status", serde_json::to_value(get_status(status)).unwrap());
+    }
+    if !search.tags.is_empty() {
+        items.insert("tags", serde_json::to_value(&search.tags).unwrap());
+    }
+    let json = json!({"query": QUERY2, "variables": items });
+
+    let resp = download(
+        client
+            .post("https://graphql.anilist.co/")
+            .header("Accept", "application/json")
+            .json(&json),
+    )
+    .await?;
+    println!("{}", resp);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test() {
+    //search(&Client::new(), &None).await.unwrap();
 }

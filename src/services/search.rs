@@ -1,4 +1,6 @@
 use crate::extractor::SearchServiceScrapeData;
+use crate::ScrapeError;
+use api_structure::scraper::{SimpleSearch, ValidSearch};
 use reqwest::Client;
 use std::collections::HashMap;
 
@@ -19,7 +21,11 @@ impl SearchService {
         todo!()
     }
 
-    pub async fn search(search: SearchService) -> Vec<SearchResult> {
+    pub async fn search(uri: &str, search: SimpleSearch) -> Result<Vec<SearchResult>, ScrapeError> {
+        todo!()
+    }
+
+    pub async fn get_valid_search(uri: &str) -> Option<ValidSearch> {
         todo!()
     }
 }

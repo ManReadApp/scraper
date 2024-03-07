@@ -64,23 +64,38 @@ impl MultiSiteService {
             }
         }?;
         let mut existing = HashSet::new();
+        let mut last = 0.0;
+        let fix = false;
         for now in &mut now {
+            let mut increase = false;
             if now.episode == 0.0 {
-                return Err(ScrapeError::input_error("failed to parse episode"));
+                if fix {
+                    increase = true;
+                    now.episode = last;
+                } else {
+                    return Err(ScrapeError::input_error("failed to parse episode"));
+                }
             }
-            if existing.contains(&now.episode.to_string()) {
-                return Err(ScrapeError::input_error("episode does already exist"));
+            while existing.contains(&format!("{:.2}", now.episode)) {
+                if increase {
+                    now.episode += 0.01;
+                } else {
+                    return Err(ScrapeError::input_error("episode does already exist"));
+                }
             }
-            existing.insert(now.episode.to_string());
+            now.episode = cut_float(now.episode);
+            last = now.episode;
+
+            existing.insert(format!("{:.2}", now.episode));
         }
         for later in &mut later {
             if later.episode == 0.0 {
                 return Err(ScrapeError::input_error("failed to parse episode"));
             }
-            if existing.contains(&later.episode.to_string()) {
+            if existing.contains(&format!("{:.2}", later.episode)) {
                 return Err(ScrapeError::input_error("episode does already exist"));
             }
-            existing.insert(later.episode.to_string());
+            existing.insert(format!("{:.2}", later.episode));
         }
         Ok((now, later))
     }
@@ -99,6 +114,10 @@ impl MultiSiteService {
             manual_pages(&self.client, info, acc).await
         }
     }
+}
+
+fn cut_float(f: f64) -> f64 {
+    format!("{:.2}", f).parse().unwrap()
 }
 
 #[derive(Debug, Serialize, Deserialize)]

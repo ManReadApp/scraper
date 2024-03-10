@@ -1,6 +1,6 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::ScrapeError;
-use api_structure::scraper::{SimpleSearch, ValidSearch};
+use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult, SimpleSearch, ValidSearch};
 use reqwest::Client;
 use std::collections::HashMap;
 
@@ -17,27 +17,25 @@ impl SearchService {
             services,
         }
     }
-    pub fn sites() -> Vec<String> {
-        todo!()
+
+    pub fn sites(&self) -> Vec<String> {
+        let mut keys = vec![
+            "kitsu".to_string(),
+            "anilist".to_string(),
+            "anime-planet".to_string(),
+        ];
+        keys.append(&mut self.services.keys().cloned().collect::<Vec<_>>());
+        keys
     }
 
-    pub async fn search(uri: &str, search: SimpleSearch) -> Result<Vec<SearchResult>, ScrapeError> {
+    pub async fn search(
+        &self,
+        uri: &str,
+        search: ExternalSearchData,
+    ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
+        if !self.sites().contains(&uri.to_owned()) {
+            return Err(ScrapeError::input_error("uri does not exist"));
+        }
         todo!()
     }
-
-    pub async fn get_valid_search(uri: &str) -> Option<ValidSearch> {
-        todo!()
-    }
-}
-
-pub struct SearchRequest {
-    site: String,
-    query: Option<String>,
-    page: u32,
-}
-
-pub struct SearchResult {
-    pub title: String,
-    pub url: String,
-    pub cover: String,
 }

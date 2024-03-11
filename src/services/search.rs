@@ -1,6 +1,6 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::ScrapeError;
-use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult, SimpleSearch, ValidSearch};
+use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult};
 use reqwest::Client;
 use std::collections::HashMap;
 
@@ -31,7 +31,7 @@ impl SearchService {
     pub async fn search(
         &self,
         uri: &str,
-        search: ExternalSearchData,
+        _search: ExternalSearchData,
     ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
         if !self.sites().contains(&uri.to_owned()) {
             return Err(ScrapeError::input_error("uri does not exist"));

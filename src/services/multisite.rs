@@ -5,7 +5,6 @@ use crate::services::{config_to_request_builder, Service};
 use crate::{ExternalSite, ScrapeError};
 use api_structure::error::{ApiErr, ApiErrorType};
 use api_structure::scrape::ScrapeAccount;
-use futures::StreamExt;
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

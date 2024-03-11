@@ -171,10 +171,3 @@ pub fn clean_text(text: String) -> String {
         text
     }
 }
-
-#[derive(Debug)]
-enum SelectorType {
-    Class,
-    Id,
-    Name,
-}

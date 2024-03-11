@@ -7,12 +7,11 @@ use crate::services::search::SearchService;
 use crate::services::singlesite::SingleSiteService;
 use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{read_dir, File};
 use std::io;
-use std::io::{read_to_string, BufRead, Write};
+use std::io::{read_to_string, BufRead};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -22,7 +21,7 @@ pub mod multisite;
 pub mod search;
 pub mod singlesite;
 
-struct Service {
+pub struct Service {
     fields: Vec<Field>,
     config: HashMap<String, String>,
 }
@@ -131,12 +130,6 @@ struct Header {
 enum Kind {
     SingleSiteScraper,
     MultiSiteScraper,
-}
-
-pub fn hashmap_to_struct<T: DeserializeOwned>(
-    hm: HashMap<String, String>,
-) -> serde_json::Result<T> {
-    serde_json::from_str(&serde_json::to_string(&hm).unwrap())
 }
 
 pub fn config_to_request_builder(

@@ -7,7 +7,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 const QUERY: &str = "
 query ($id: Int) { # Define which variables will be used in the query (id)

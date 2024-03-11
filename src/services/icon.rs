@@ -17,7 +17,7 @@ enum Filter {
 
 pub struct ExternalSite {
     filters: Vec<Filter>,
-    path_buf: PathBuf,
+    pub path_buf: PathBuf,
     pub uri: String,
 }
 

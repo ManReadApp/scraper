@@ -70,7 +70,7 @@ fn post_process(
         }
         res.insert(key, v);
     }
-    if let Some(ItemOrArray::Array(mut v)) = res.remove("fields_labels") {
+    if let Some(ItemOrArray::Array(v)) = res.remove("fields_labels") {
         if let Some(ItemOrArray::Array(vv)) = res.remove("labels") {
             if v.len() == vv.len() {
                 for (i, data) in v.into_iter().enumerate() {

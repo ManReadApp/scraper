@@ -7,8 +7,8 @@ pub fn register() -> Vec<&'static str> {
 }
 
 pub fn post_process(
-    uri: &str,
-    values: HashMap<String, String>,
+    _uri: &str,
+    _values: HashMap<String, String>,
 ) -> Result<Vec<String>, ScrapeError> {
     Err(ApiErr {
         message: Some("couldnt find fields to process".to_string()),
@@ -18,7 +18,7 @@ pub fn post_process(
     .into())
 }
 
-pub async fn manual(uri: &str, url: &str) -> Result<Vec<String>, ScrapeError> {
+pub async fn manual(_uri: &str, _url: &str) -> Result<Vec<String>, ScrapeError> {
     Err(ApiErr {
         message: Some("uri not registered".to_string()),
         cause: None,

@@ -5,7 +5,6 @@ use crate::services::icon::{get_uri, ExternalSite};
 use crate::services::{config_to_request_builder, Service};
 use reqwest::Client;
 use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Default)]

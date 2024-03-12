@@ -410,7 +410,6 @@ pub async fn search(
             .json(&json),
     )
     .await?;
-    println!("{resp}");
     let data: SearchResponse = serde_json::from_str(&resp)?;
     let data = data.data.page.media;
     Ok(data

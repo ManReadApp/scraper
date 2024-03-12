@@ -1,6 +1,11 @@
+use crate::downloader::download;
 use crate::pages::animeplanet::tags::TAGS;
+use crate::pages::hidden::pages::mangadex::{UA, UA_ERR};
 use crate::ScrapeError;
-use api_structure::scraper::{SimpleSearch, ValidSearch};
+use api_structure::scraper::{ScrapeSearchResult, SimpleSearch, ValidSearch};
+use reqwest::header::USER_AGENT;
+use reqwest::Client;
+use scraper::{Html, Selector};
 use std::collections::HashMap;
 
 mod tags;
@@ -26,7 +31,6 @@ pub fn get_valid() -> ValidSearch {
 
 //https://www.anime-planet.com/manga/all?sort=title&order=asc
 fn get_order(s: &str) -> &str {
-    //name={}&sort={&&{}
     match s {
         "title" => "title",
         "published" => "year",
@@ -47,7 +51,10 @@ fn get_status(s: &str) -> &str {
     }
 }
 
-fn search(search_request: SimpleSearch) -> Result<(), ScrapeError> {
+pub async fn search(
+    client: &Client,
+    search_request: SimpleSearch,
+) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
     let valid: ValidSearch = get_valid();
     if !search_request.validate(&valid) {
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
@@ -83,5 +90,42 @@ fn search(search_request: SimpleSearch) -> Result<(), ScrapeError> {
         ))
     }
     let url = format!("https://www.anime-planet.com/manga/all?{}", items.join("&"));
-    Ok(())
+    let html = download(client.get(url).header(USER_AGENT, UA_ERR)).await?;
+    let doc = Html::parse_document(html.as_str());
+    let mangas = Selector::parse(".card").unwrap();
+    let title = Selector::parse(".cardName").unwrap();
+    let cover = Selector::parse("img").unwrap();
+    let url = Selector::parse("a").unwrap();
+    let mut res = vec![];
+    for manga in doc.select(&mangas) {
+        let url = manga
+            .select(&url)
+            .next()
+            .ok_or(ScrapeError::node_not_found())?;
+        let cover = manga
+            .select(&cover)
+            .next()
+            .ok_or(ScrapeError::node_not_found())?;
+        let title = manga
+            .select(&title)
+            .next()
+            .ok_or(ScrapeError::node_not_found())?;
+        res.push(ScrapeSearchResult {
+            title: title.text().collect::<Vec<_>>().join(""),
+            url: format!(
+                "https://www.anime-planet.com{}",
+                url.attr("href")
+                    .ok_or(ScrapeError::node_not_found())?
+                    .to_string()
+            ),
+            cover: cover
+                .attr("data-src")
+                .ok_or(ScrapeError::node_not_found())?
+                .to_string(),
+            r#type: "unknown".to_string(),
+            status: None,
+        });
+    }
+
+    Ok(res)
 }

@@ -1,5 +1,5 @@
 use crate::extractor::SearchServiceScrapeData;
-use crate::pages::{anilist, kitsu};
+use crate::pages::{anilist, animeplanet, kitsu};
 use crate::ScrapeError;
 use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult};
 use reqwest::Client;
@@ -37,6 +37,7 @@ impl SearchService {
         match uri {
             "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
             "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
+            "anime-planet" => animeplanet::search(&self.client, search.get_simple()?).await,
             _ => Err(ScrapeError::input_error("uri does not exist")),
         }
     }

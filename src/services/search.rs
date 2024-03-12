@@ -1,4 +1,5 @@
 use crate::extractor::SearchServiceScrapeData;
+use crate::pages::anilist;
 use crate::ScrapeError;
 use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult};
 use reqwest::Client;
@@ -31,11 +32,11 @@ impl SearchService {
     pub async fn search(
         &self,
         uri: &str,
-        _search: ExternalSearchData,
+        search: ExternalSearchData,
     ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
-        if !self.sites().contains(&uri.to_owned()) {
-            return Err(ScrapeError::input_error("uri does not exist"));
+        match uri {
+            "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
+            _ => Err(ScrapeError::input_error("uri does not exist")),
         }
-        todo!()
     }
 }

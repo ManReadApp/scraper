@@ -1,8 +1,8 @@
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 use crate::ScrapeError;
-use api_structure::scraper::SimpleSearch;
 use api_structure::scraper::ValidSearch;
+use api_structure::scraper::{ScrapeSearchResult, SimpleSearch};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -325,49 +325,13 @@ const QUERY2: &str = "query (
         large
         color
       }
-      startDate {
-        year
-        month
-        day
-      }
-      endDate {
-        year
-        month
-        day
-      }
       bannerImage
-      season
-      seasonYear
       description
       type
       format
       status(version: 2)
-      episodes
-      duration
-      chapters
-      volumes
       genres
       isAdult
-      averageScore
-      popularity
-      nextAiringEpisode {
-        airingAt
-        timeUntilAiring
-        episode
-      }
-      mediaListEntry {
-        id
-        status
-      }
-      studios(isMain: true) {
-        edges {
-          isMain
-          node {
-            id
-            name
-          }
-        }
-      }
     }
   }
 }
@@ -404,8 +368,7 @@ fn get_status(s: &str) -> &str {
 pub async fn search(
     client: &Client,
     search: &SimpleSearch,
-    tags: Vec<String>,
-) -> Result<(), ScrapeError> {
+) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
     let valid: ValidSearch = ValidSearch::anilist();
     if !search.validate(&valid) {
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
@@ -447,11 +410,77 @@ pub async fn search(
             .json(&json),
     )
     .await?;
-    println!("{}", resp);
-    Ok(())
+    println!("{resp}");
+    let data: SearchResponse = serde_json::from_str(&resp)?;
+    let data = data.data.page.media;
+    Ok(data
+        .into_iter()
+        .map(|v| ScrapeSearchResult {
+            title: v.title.user_preferred,
+            url: format!("https://anilist.co/manga/{}", v.id),
+            cover: v.cover_image.extra_large,
+            r#type: v.r#type,
+            status: Some(v.status),
+        })
+        .collect())
 }
 
-#[tokio::test]
-async fn test() {
-    //search(&Client::new(), &None).await.unwrap();
+#[derive(Serialize, Deserialize)]
+struct CoverImage1 {
+    #[serde(rename = "extraLarge")]
+    pub extra_large: String,
+    pub large: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Title2 {
+    #[serde(rename = "userPreferred")]
+    pub user_preferred: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Struct {
+    pub id: i64,
+    pub title: Title2,
+    #[serde(rename = "coverImage")]
+    pub cover_image: CoverImage1,
+    #[serde(rename = "bannerImage")]
+    pub banner_image: Option<String>,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub format: String,
+    pub status: String,
+    pub genres: Vec<String>,
+    #[serde(rename = "isAdult")]
+    pub is_adult: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PageInfo {
+    pub total: i64,
+    #[serde(rename = "perPage")]
+    pub per_page: i64,
+    #[serde(rename = "currentPage")]
+    pub current_page: i64,
+    #[serde(rename = "lastPage")]
+    pub last_page: i64,
+    #[serde(rename = "hasNextPage")]
+    pub has_next_page: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Page {
+    pub media: Vec<Struct>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Data1 {
+    #[serde(rename = "Page")]
+    pub page: Page,
+}
+
+#[derive(Serialize, Deserialize)]
+struct SearchResponse {
+    pub data: Data1,
 }

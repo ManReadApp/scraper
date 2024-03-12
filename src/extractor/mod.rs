@@ -22,6 +22,7 @@ pub struct SearchServiceDeserialized {
     type_: Option<String>,
     status: Option<String>,
     cover: String,
+    offset: Option<u32>,
 }
 
 impl SearchServiceDeserialized {
@@ -42,6 +43,7 @@ impl SearchServiceDeserialized {
             label_selector: self.label_selector.map(|v| Selector::parse(&v).unwrap()),
             type_: self.type_.map(|v| Selector::parse(&v).unwrap()),
             status: self.status.map(|v| Selector::parse(&v).unwrap()),
+            offset: self.offset,
         }
     }
 }
@@ -55,6 +57,7 @@ pub struct SearchServiceScrapeData {
     label_selector: Option<Selector>,
     type_: Option<Selector>,
     status: Option<Selector>,
+    offset: Option<u32>,
 }
 
 impl SearchServiceScrapeData {
@@ -76,7 +79,11 @@ impl SearchServiceScrapeData {
         let url = url
             .unwrap()
             .replace("{query}", &urlencoding::encode(&query))
-            .replace("{page}", &page.to_string());
+            .replace("{page}", &page.to_string())
+            .replace(
+                "{offset}",
+                &((page - 1) * self.offset.unwrap_or(0)).to_string(),
+            );
         let html = download(config_to_request_builder(client, &self.headers, &url)).await?;
         let doc = Html::parse_document(html.as_str());
         let urls = doc
@@ -86,7 +93,11 @@ impl SearchServiceScrapeData {
 
         let cover = doc
             .select(&self.cover)
-            .map(|v| v.attr("src").unwrap_or_default().to_string())
+            .map(|v| {
+                v.attr("src")
+                    .unwrap_or(v.attr("data-src").unwrap_or_default())
+                    .to_string()
+            })
             .map(|v| {
                 v.split_once("/https://")
                     .map(|(_, url)| format!("https://{url}"))

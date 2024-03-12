@@ -1,6 +1,6 @@
 use crate::error::ScrapeError;
 use crate::extractor::parser::Field;
-use crate::extractor::SearchServiceScrapeData;
+use crate::extractor::{SearchServiceDeserialized, SearchServiceScrapeData};
 use crate::services::metadata::MetaDataService;
 use crate::services::multisite::MultiSiteService;
 use crate::services::search::SearchService;
@@ -80,8 +80,8 @@ pub fn init(
                 } else if let Some(v) = name.strip_suffix(".search") {
                     let file = File::open(path.as_path())?;
                     let str = read_to_string(file)?;
-                    let data: SearchServiceScrapeData = serde_json::from_str(&str)?;
-                    search.insert(v.to_string(), data);
+                    let data: SearchServiceDeserialized = serde_json::from_str(&str)?;
+                    search.insert(v.to_string(), data.convert(&folder));
                 }
             }
         }

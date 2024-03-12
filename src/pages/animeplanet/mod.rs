@@ -122,7 +122,7 @@ pub async fn search(
                 .attr("data-src")
                 .ok_or(ScrapeError::node_not_found())?
                 .to_string(),
-            r#type: "unknown".to_string(),
+            r#type: None,
             status: None,
         });
     }

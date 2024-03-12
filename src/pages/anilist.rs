@@ -418,7 +418,7 @@ pub async fn search(
             title: v.title.user_preferred,
             url: format!("https://anilist.co/manga/{}", v.id),
             cover: v.cover_image.extra_large,
-            r#type: v.r#type,
+            r#type: Some(v.r#type),
             status: Some(v.status),
         })
         .collect())

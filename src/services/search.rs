@@ -34,11 +34,16 @@ impl SearchService {
         uri: &str,
         search: ExternalSearchData,
     ) -> Result<Vec<ScrapeSearchResult>, ScrapeError> {
-        match uri {
-            "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
-            "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
-            "anime-planet" => animeplanet::search(&self.client, search.get_simple()?).await,
-            _ => Err(ScrapeError::input_error("uri does not exist")),
+        if let Some(service) = self.services.get(uri) {
+            let (query, page) = search.get_query();
+            service.search(&self.client, query, page).await
+        } else {
+            match uri {
+                "anilist" => anilist::search(&self.client, &search.get_simple()?).await,
+                "kitsu" => kitsu::search(&self.client, search.get_simple()?).await,
+                "anime-planet" => animeplanet::search(&self.client, search.get_simple()?).await,
+                _ => Err(ScrapeError::input_error("uri does not exist")),
+            }
         }
     }
 }

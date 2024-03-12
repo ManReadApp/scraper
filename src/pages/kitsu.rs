@@ -160,7 +160,7 @@ pub async fn search(
             title: v.attributes.canonical_title,
             url: format!("https://kitsu.io/manga/{}", v.attributes.slug),
             cover: v.attributes.poster_image.original,
-            r#type: v.r#type,
+            r#type: Some(v.r#type),
             status: None,
         })
         .collect())

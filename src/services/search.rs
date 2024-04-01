@@ -1,7 +1,7 @@
 use crate::extractor::SearchServiceScrapeData;
 use crate::pages::{anilist, animeplanet, kitsu};
 use crate::ScrapeError;
-use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult};
+use api_structure::scraper::{ExternalSearchData, ScrapeSearchResult, ValidSearch, ValidSearches};
 use reqwest::Client;
 use std::collections::HashMap;
 
@@ -19,14 +19,30 @@ impl SearchService {
         }
     }
 
-    pub fn sites(&self) -> Vec<String> {
+    pub fn sites(&self) -> HashMap<String, ValidSearches> {
         let mut keys = vec![
-            "kitsu".to_string(),
-            "anilist".to_string(),
-            "anime-planet".to_string(),
+            (
+                "kitsu".to_string(),
+                ValidSearches::ValidSearch(ValidSearch::kitsu()),
+            ),
+            (
+                "anilist".to_string(),
+                ValidSearches::ValidSearch(ValidSearch::anilist()),
+            ),
+            (
+                "anime-planet".to_string(),
+                ValidSearches::ValidSearch(animeplanet::get_valid()),
+            ),
         ];
-        keys.append(&mut self.services.keys().cloned().collect::<Vec<_>>());
-        keys
+        keys.append(
+            &mut self
+                .services
+                .keys()
+                .cloned()
+                .map(|v| (v, ValidSearches::String))
+                .collect::<Vec<_>>(),
+        );
+        keys.into_iter().collect()
     }
 
     pub async fn search(

@@ -140,8 +140,8 @@ pub async fn search(
     let limit = 20;
     let offset = (search.page - 1) * limit;
     let mut url = format!("https://kitsu.io/api/edge/manga?fields%5Bmanga%5D=slug%2CcanonicalTitle%2Ctitles%2CposterImage%2Cdescription%2CaverageRating%2CstartDate%2CpopularityRank%2CratingRank&page%5Blimit%5D={limit}&page%5Boffset%5D={offset}");
-    if let Some(query) = search.search {
-        let query = urlencoding::encode(&query);
+    if !search.search.is_empty() {
+        let query = urlencoding::encode(&search.search);
         url = format!("{url}&filter%5Btext%5D={query}")
     }
     if !search.tags.is_empty() {
@@ -199,7 +199,7 @@ struct Attributes {
     pub poster_image: PosterImage,
     pub description: Option<String>,
     #[serde(rename = "startDate")]
-    pub start_date: String,
+    pub start_date: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

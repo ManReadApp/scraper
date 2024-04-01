@@ -379,11 +379,11 @@ pub async fn search(
     ]
     .into_iter()
     .collect::<HashMap<_, _>>();
-    if let Some(query) = &search.search {
+    if !search.search.is_empty() {
         if search.sort.is_none() {
             items.insert("sort", serde_json::to_value("SEARCH_MATCH").unwrap());
         }
-        items.insert("search", serde_json::to_value(query).unwrap());
+        items.insert("search", serde_json::to_value(&search.search).unwrap());
     } else {
         if search.sort.is_none() {
             items.insert(
@@ -445,7 +445,7 @@ struct Struct {
     pub cover_image: CoverImage1,
     #[serde(rename = "bannerImage")]
     pub banner_image: Option<String>,
-    pub description: String,
+    pub description: Option<String>,
     #[serde(rename = "type")]
     pub r#type: String,
     pub format: String,

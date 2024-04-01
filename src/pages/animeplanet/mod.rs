@@ -60,8 +60,11 @@ pub async fn search(
         return Err(ScrapeError::input_error("couldnt match ValidSearch"));
     }
     let mut items = vec![format!("page={}", search_request.page)];
-    if let Some(v) = &search_request.search {
-        items.push(format!("name={}", urlencoding::encode(v)))
+    if !search_request.search.is_empty() {
+        items.push(format!(
+            "name={}",
+            urlencoding::encode(&search_request.search)
+        ))
     }
     if let Some(v) = &search_request.sort {
         let desc = match search_request.desc {

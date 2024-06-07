@@ -1,6 +1,6 @@
 use crate::downloader::download;
 use crate::pages::animeplanet::tags::TAGS;
-use crate::pages::hidden::pages::mangadex::{UA, UA_ERR};
+use crate::pages::hidden::pages::mangadex::UA_ERR;
 use crate::ScrapeError;
 use api_structure::scraper::{ScrapeSearchResult, SimpleSearch, ValidSearch};
 use reqwest::header::USER_AGENT;

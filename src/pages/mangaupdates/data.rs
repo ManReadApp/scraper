@@ -1,6 +1,7 @@
 use crate::downloader::download;
 use crate::services::metadata::ItemOrArray;
 use crate::ScrapeError;
+
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
